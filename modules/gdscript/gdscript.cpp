@@ -2035,6 +2035,24 @@ GDScriptInstance::~GDScriptInstance() {
 /************* SCRIPT LANGUAGE **************/
 
 GDScriptLanguage *GDScriptLanguage::singleton = nullptr;
+GDScriptLanguage::SandboxGlobalCallback GDScriptLanguage::_sandbox_global_callback = nullptr;
+GDScriptLanguage::SandboxLoadCallback GDScriptLanguage::_sandbox_load_callback = nullptr;
+
+void GDScriptLanguage::set_sandbox_global_callback(SandboxGlobalCallback p_callback) {
+	_sandbox_global_callback = p_callback;
+}
+
+GDScriptLanguage::SandboxGlobalCallback GDScriptLanguage::get_sandbox_global_callback() {
+	return _sandbox_global_callback;
+}
+
+void GDScriptLanguage::set_sandbox_load_callback(SandboxLoadCallback p_callback) {
+	_sandbox_load_callback = p_callback;
+}
+
+GDScriptLanguage::SandboxLoadCallback GDScriptLanguage::get_sandbox_load_callback() {
+	return _sandbox_load_callback;
+}
 
 String GDScriptLanguage::get_name() const {
 	return "GDScript";
@@ -2086,6 +2104,36 @@ Variant GDScriptLanguage::get_any_global_constant(const StringName &p_name) {
 		return _global_array[globals[p_name]];
 	}
 	ERR_FAIL_V_MSG(Variant(), vformat("Could not find any global constant with name: %s.", p_name));
+}
+
+bool GDScriptLanguage::has_named_global_for_context(const StringName &p_name) const {
+	// Check if sandbox callback is set and can handle this global
+	if (_sandbox_global_callback) {
+		Variant dummy;
+		if (_sandbox_global_callback(p_name, dummy)) {
+			return true;
+		}
+	}
+
+	// Check host named_globals
+	return named_globals.has(p_name);
+}
+
+Variant GDScriptLanguage::get_named_global_for_context(const StringName &p_name) const {
+	// Check if sandbox callback is set and can handle this global
+	if (_sandbox_global_callback) {
+		Variant value;
+		if (_sandbox_global_callback(p_name, value)) {
+			return value;
+		}
+	}
+
+	// Return from host named_globals
+	if (named_globals.has(p_name)) {
+		return named_globals[p_name];
+	}
+
+	return Variant();
 }
 
 void GDScriptLanguage::remove_named_global_constant(const StringName &p_name) {

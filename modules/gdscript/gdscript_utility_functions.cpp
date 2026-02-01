@@ -233,6 +233,19 @@ struct GDScriptUtilityFunctionsDefinitions {
 	static inline void load(Variant *r_ret, const Variant **p_args, int p_arg_count, Callable::CallError &r_error) {
 		DEBUG_VALIDATE_ARG_COUNT(1, 1);
 		DEBUG_VALIDATE_ARG_TYPE(0, Variant::STRING);
+
+		// Check if sandbox load callback is set (indicates we may be in sandbox context)
+		GDScriptLanguage::SandboxLoadCallback callback = GDScriptLanguage::get_sandbox_load_callback();
+		if (callback) {
+			Ref<Resource> res;
+			if (callback(*p_args[0], res)) {
+				// Sandbox handled the load
+				*r_ret = res;
+				return;
+			}
+			// If callback returns false but was set, it means we're not in sandbox - use default
+		}
+
 		*r_ret = ResourceLoader::load(*p_args[0]);
 	}
 

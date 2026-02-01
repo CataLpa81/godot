@@ -580,6 +580,28 @@ public:
 	bool has_any_global_constant(const StringName &p_name) { return named_globals.has(p_name) || globals.has(p_name); }
 	Variant get_any_global_constant(const StringName &p_name);
 
+	// Sandbox-aware global access callbacks
+	// Returns true if the global should be intercepted by sandbox, and sets r_value
+	typedef bool (*SandboxGlobalCallback)(const StringName &p_name, Variant &r_value);
+	static void set_sandbox_global_callback(SandboxGlobalCallback p_callback);
+	static SandboxGlobalCallback get_sandbox_global_callback();
+
+	// Sandbox load callback - allows sandbox to intercept load() calls
+	// Returns true if handled (and sets r_resource), false to use default loading
+	typedef bool (*SandboxLoadCallback)(const String &p_path, Ref<Resource> &r_resource);
+	static void set_sandbox_load_callback(SandboxLoadCallback p_callback);
+	static SandboxLoadCallback get_sandbox_load_callback();
+
+	// Sandbox-aware global access - returns sandbox globals if in sandbox context, otherwise host globals
+	bool has_named_global_for_context(const StringName &p_name) const;
+	Variant get_named_global_for_context(const StringName &p_name) const;
+
+private:
+	static SandboxGlobalCallback _sandbox_global_callback;
+	static SandboxLoadCallback _sandbox_load_callback;
+
+public:
+
 	_FORCE_INLINE_ static GDScriptLanguage *get_singleton() { return singleton; }
 
 	virtual String get_name() const override;

@@ -818,6 +818,24 @@ public: // Should be protected, but bug in clang++.
 	_FORCE_INLINE_ static void register_custom_data_to_otdb() {}
 
 public:
+	// Sandbox API check hook - allows the sandbox module to intercept method calls
+	// Returns true if the call should be allowed, false to block it
+	typedef bool (*SandboxAPICheckCallback)(Object *p_object, const StringName &p_method);
+	static void set_sandbox_api_check_callback(SandboxAPICheckCallback p_callback);
+	static SandboxAPICheckCallback get_sandbox_api_check_callback();
+
+	// Sandbox property check hook - allows the sandbox module to intercept property access
+	// p_is_set: true for set operation, false for get operation
+	// Returns true if access should be allowed, false to block it
+	typedef bool (*SandboxPropertyCheckCallback)(Object *p_object, const StringName &p_property, bool p_is_set);
+	static void set_sandbox_property_check_callback(SandboxPropertyCheckCallback p_callback);
+	static SandboxPropertyCheckCallback get_sandbox_property_check_callback();
+
+private:
+	static SandboxAPICheckCallback _sandbox_api_check_callback;
+	static SandboxPropertyCheckCallback _sandbox_property_check_callback;
+
+public:
 	void notify_property_list_changed();
 
 	static void *get_class_ptr_static() {

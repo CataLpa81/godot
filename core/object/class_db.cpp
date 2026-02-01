@@ -66,6 +66,17 @@ HashMap<StringName, ClassDB::ClassInfo> ClassDB::classes;
 HashMap<StringName, StringName> ClassDB::resource_base_extensions;
 HashMap<StringName, StringName> ClassDB::compat_classes;
 
+// Sandbox class check callback - initialized to nullptr
+ClassDB::SandboxClassCheckCallback ClassDB::_sandbox_class_check_callback = nullptr;
+
+void ClassDB::set_sandbox_class_check_callback(SandboxClassCheckCallback p_callback) {
+	_sandbox_class_check_callback = p_callback;
+}
+
+ClassDB::SandboxClassCheckCallback ClassDB::get_sandbox_class_check_callback() {
+	return _sandbox_class_check_callback;
+}
+
 #ifdef TOOLS_ENABLED
 HashMap<StringName, ObjectGDExtension> ClassDB::placeholder_extensions;
 
@@ -553,6 +564,14 @@ StringName ClassDB::get_compatibility_class(const StringName &p_class) {
 }
 
 Object *ClassDB::_instantiate_internal(const StringName &p_class, bool p_require_real_class, bool p_notify_postinitialize, bool p_exposed_only) {
+	// Sandbox class instantiation check - if callback is set, check if class can be instantiated
+	if (_sandbox_class_check_callback) {
+		if (!_sandbox_class_check_callback(p_class)) {
+			ERR_FAIL_V_MSG(nullptr,
+					vformat("Class '%s' cannot be instantiated in sandbox context.", String(p_class)));
+		}
+	}
+
 	ClassInfo *ti;
 	{
 		Locker::Lock lock(Locker::STATE_READ);

@@ -251,6 +251,16 @@ private:
 	static bool _can_instantiate(ClassInfo *p_class_info, bool p_exposed_only = true);
 
 public:
+	// Sandbox class instantiation check hook
+	typedef bool (*SandboxClassCheckCallback)(const StringName &p_class);
+	static void set_sandbox_class_check_callback(SandboxClassCheckCallback p_callback);
+	static SandboxClassCheckCallback get_sandbox_class_check_callback();
+
+private:
+	// Sandbox instantiation check callback
+	static SandboxClassCheckCallback _sandbox_class_check_callback;
+
+public:
 	template <typename T>
 	static void register_class(bool p_virtual = false) {
 		Locker::Lock lock(Locker::STATE_WRITE);

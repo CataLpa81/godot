@@ -82,6 +82,28 @@ struct _ObjectSignalLock {
 
 #define OBJ_SIGNAL_LOCK _ObjectSignalLock _signal_lock(this);
 
+// Sandbox API check callback - initialized to nullptr
+Object::SandboxAPICheckCallback Object::_sandbox_api_check_callback = nullptr;
+
+// Sandbox property check callback - initialized to nullptr
+Object::SandboxPropertyCheckCallback Object::_sandbox_property_check_callback = nullptr;
+
+void Object::set_sandbox_api_check_callback(SandboxAPICheckCallback p_callback) {
+	_sandbox_api_check_callback = p_callback;
+}
+
+Object::SandboxAPICheckCallback Object::get_sandbox_api_check_callback() {
+	return _sandbox_api_check_callback;
+}
+
+void Object::set_sandbox_property_check_callback(SandboxPropertyCheckCallback p_callback) {
+	_sandbox_property_check_callback = p_callback;
+}
+
+Object::SandboxPropertyCheckCallback Object::get_sandbox_property_check_callback() {
+	return _sandbox_property_check_callback;
+}
+
 PropertyInfo::operator Dictionary() const {
 	Dictionary d;
 	d["name"] = name;
@@ -333,6 +355,17 @@ void Object::_postinitialize() {
 }
 
 void Object::set(const StringName &p_name, const Variant &p_value, bool *r_valid) {
+	// Sandbox property set check
+	if (_sandbox_property_check_callback) {
+		if (!_sandbox_property_check_callback(this, p_name, true)) {
+			if (r_valid) {
+				*r_valid = false;
+			}
+			ERR_FAIL_MSG(vformat("Setting property '%s::%s' is not allowed in sandbox context.",
+					get_class_name(), p_name));
+		}
+	}
+
 #ifdef TOOLS_ENABLED
 
 	_edited = true;
@@ -416,6 +449,18 @@ void Object::set(const StringName &p_name, const Variant &p_value, bool *r_valid
 }
 
 Variant Object::get(const StringName &p_name, bool *r_valid) const {
+	// Sandbox property get check
+	if (_sandbox_property_check_callback) {
+		if (!_sandbox_property_check_callback(const_cast<Object *>(this), p_name, false)) {
+			if (r_valid) {
+				*r_valid = false;
+			}
+			ERR_FAIL_V_MSG(Variant(),
+					vformat("Getting property '%s::%s' is not allowed in sandbox context.",
+							get_class_name(), p_name));
+		}
+	}
+
 	Variant ret;
 
 	if (script_instance) {
@@ -870,6 +915,15 @@ Variant Object::callv(const StringName &p_method, const Array &p_args) {
 
 Variant Object::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
 	r_error.error = Callable::CallError::CALL_OK;
+
+	// Sandbox API check - if callback is set, check if method call is allowed
+	if (_sandbox_api_check_callback) {
+		if (!_sandbox_api_check_callback(this, p_method)) {
+			r_error.error = Callable::CallError::CALL_ERROR_INVALID_METHOD;
+			ERR_FAIL_V_MSG(Variant(),
+					vformat("Method '%s::%s' is not allowed in sandbox context.", get_class_name(), p_method));
+		}
+	}
 
 	if (p_method == CoreStringName(free_)) {
 //free must be here, before anything, always ready
